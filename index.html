@@ -428,7 +428,6 @@
   const N8N_STATUS  = 'https://auto.ppgeducacao.site/webhook/uazapi-status';
   const N8N_CONNECT = 'https://auto.ppgeducacao.site/webhook/uazapi-connect';
   const QR_TIMEOUT  = 60;
-  const POLL_CARDS  = 8000;  // ms entre refresh dos cards
 
   const INSTANCES_CONFIG = [
     { token: 'd395a3a2-b737-429a-8551-bcff96d57ec2', name: 'Adones'           },
@@ -443,7 +442,6 @@
   // =====================================================
 
   let instances      = [];
-  let pollCardsTimer = null;
   let modalToken     = null;
   let modalTimer     = null;
   let modalPoll      = null;
@@ -496,7 +494,6 @@
     el.innerHTML = '';
     el.appendChild(grid);
     updateSummary();
-    schedulePoll();
   }
 
   function buildCard(inst, status) {
@@ -539,15 +536,6 @@
       total ? `${ok} de ${total} instância${total !== 1 ? 's' : ''} conectada${ok !== 1 ? 's' : ''}` : '';
   }
 
-  // ── Poll silencioso dos cards ─────────────────────────
-  function schedulePoll() {
-    clearTimeout(pollCardsTimer);
-    pollCardsTimer = setTimeout(async () => {
-      await silentRefresh();
-      schedulePoll();
-    }, POLL_CARDS);
-  }
-
   function showSkeletons(n) {
     const el = document.getElementById('mainContent');
     const grid = document.createElement('div');
@@ -561,23 +549,6 @@
     el.appendChild(grid);
   }
 
-  async function silentRefresh() {
-    try {
-      const results = await Promise.all(
-        INSTANCES_CONFIG.map(async ({ token, name }) => {
-          const data = await fetchStatus(token);
-          if (data) {
-            if (data.instance) data.instance.name = data.instance.name || name;
-            else data.instance = { name, token };
-            return data;
-          }
-          return { instance: { name, token }, status: { connected: false, loggedIn: false } };
-        })
-      );
-      instances = results;
-      renderGrid();
-    } catch (_) {}
-  }
 
   // ── Modal ─────────────────────────────────────────────
   async function openModal(token, name) {
@@ -657,7 +628,7 @@
         <p>WhatsApp vinculado com sucesso.</p>
         ${profileName ? `<div class="profile">${profileName}</div>` : ''}
       </div>`;
-    silentRefresh();
+    loadAll();
   }
 
   function showModalQRError() {
